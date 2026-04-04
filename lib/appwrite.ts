@@ -1,5 +1,6 @@
 import { Account, AppwriteException, Client, Databases, ID } from "appwrite";
 import type { CloudinaryUploadWidgetInfo } from "next-cloudinary";
+import { compressImage } from "./compress-image";
 import type { DesignCreateInput } from "./designInterface";
 import {
   appwriteDatabaseId,
@@ -51,8 +52,13 @@ export async function uploadNailDesignFileToCloudinary(file: File): Promise<Nail
   if (!cloudinaryCloudName) {
     throw new Error("NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME is not set");
   }
+
+  const compressed = await compressImage(file);
+  const baseName = file.name.replace(/\.[^.]+$/, "");
+  const compressedFile = new File([compressed], `${baseName}.webp`, { type: "image/webp" });
+
   const body = new FormData();
-  body.append("file", file);
+  body.append("file", compressedFile);
   body.append("upload_preset", CLOUDINARY_NAIL_DESIGN_UPLOAD_PRESET);
   const res = await fetch(
     `https://api.cloudinary.com/v1_1/${cloudinaryCloudName}/image/upload`,
