@@ -3,51 +3,73 @@
 import { account } from "@/lib/appwrite";
 import { fetchWithAppwriteJwt } from "@/lib/fetch-with-appwrite-jwt";
 import { AppwriteException } from "appwrite";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { AdminUploadForm } from "./admin-upload-form";
 
-type AuthState = "loading" | "signed-in" | "signed-out";
+type AuthState = "signed-in" | "signed-out";
 type ServerGate = "idle" | "ok" | "error";
 
-function useObjectUrls(files: File[]) {
-  const urls = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
-  useEffect(() => {
-    return () => {
-      for (const u of urls) URL.revokeObjectURL(u);
-    };
-  }, [urls]);
-  return urls;
-}
+/** If the browser never gets a response from Appwrite, `account.get()` can hang; cap wait time. */
+const SESSION_CHECK_TIMEOUT_MS = 15_000;
+/** Always hide “Checking session…” — `refreshSession` may never finish if fetch + timers stall (e.g. some mobile browsers). */
+const SESSION_CHECK_UI_CLEAR_MS = 4_000;
 
 export function AdminClient() {
-  const [auth, setAuth] = useState<AuthState>("loading");
+  /** Session is checked in the background — never block the whole page on Appwrite. */
+  const [auth, setAuth] = useState<AuthState>("signed-out");
+  const [sessionCheck, setSessionCheck] = useState<"pending" | "done">("pending");
   const [serverGate, setServerGate] = useState<ServerGate>("idle");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  /** Set when session check times out (e.g. phone cannot reach Appwrite). */
+  const [bootstrapError, setBootstrapError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const [adminPanel, setAdminPanel] = useState<"home" | "upload">("home");
-  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
-  const [designName, setDesignName] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
-  const [tagDraft, setTagDraft] = useState("");
-  const [dragActive, setDragActive] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const previewUrls = useObjectUrls(uploadFiles);
 
   const refreshSession = useCallback(async () => {
     setError(null);
+    setBootstrapError(null);
+    const timeout = new Promise<"timeout">((resolve) => {
+      setTimeout(() => resolve("timeout"), SESSION_CHECK_TIMEOUT_MS);
+    });
     try {
-      await account.get();
+      const result = await Promise.race([account.get().then(() => "ok" as const), timeout]);
+      if (result === "timeout") {
+        setBootstrapError(
+          "Could not reach Appwrite in time. Check Wi‑Fi or cellular data, VPN/ad blockers, and that your Appwrite endpoint is reachable from this device.",
+        );
+        setAuth("signed-out");
+        return;
+      }
       setAuth("signed-in");
-    } catch {
+    } catch (err) {
+      // 401 = no session; normal — show sign-in without alarming copy.
+      if (err instanceof AppwriteException && err.code === 401) {
+        setAuth("signed-out");
+        return;
+      }
+      if (err instanceof AppwriteException) {
+        // e.g. 403 Invalid Origin / CORS — Appwrite message names the host to add as a Web platform.
+        setBootstrapError(err.message);
+      }
       setAuth("signed-out");
+    } finally {
+      setSessionCheck("done");
     }
   }, []);
 
   useEffect(() => {
     void refreshSession();
   }, [refreshSession]);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setSessionCheck("done");
+    }, SESSION_CHECK_UI_CLEAR_MS);
+    return () => window.clearTimeout(id);
+  }, []);
 
   useEffect(() => {
     if (auth !== "signed-in") {
@@ -100,88 +122,14 @@ export function AdminClient() {
       setSubmitting(false);
       setAuth("signed-out");
       setAdminPanel("home");
-      setUploadFiles([]);
-      setDesignName("");
-      setTags([]);
-      setTagDraft("");
     }
-  }
-
-  function addFilesFromList(list: FileList | File[]) {
-    const incoming = Array.from(list).filter((f) => f.type.startsWith("image/"));
-    if (incoming.length === 0) return;
-    setUploadFiles((prev) => {
-      const next = [...prev, ...incoming];
-      const seen = new Set<string>();
-      return next.filter((f) => {
-        const key = `${f.name}-${f.size}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-    });
-  }
-
-  function removeFileAt(index: number) {
-    setUploadFiles((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function commitTagFromDraft() {
-    const raw = tagDraft.trim().replace(/^#/, "");
-    if (!raw) return;
-    const parts = raw
-      .split(/[,;]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (parts.length === 0) return;
-    setTags((prev) => {
-      const seen = new Set(prev.map((t) => t.toLowerCase()));
-      const out = [...prev];
-      for (const p of parts) {
-        const k = p.toLowerCase();
-        if (!seen.has(k)) {
-          seen.add(k);
-          out.push(p);
-        }
-      }
-      return out;
-    });
-    setTagDraft("");
-  }
-
-  function removeTag(tag: string) {
-    setTags((prev) => prev.filter((t) => t !== tag));
-  }
-
-  function handleTagKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      commitTagFromDraft();
-    }
-    if (e.key === "Backspace" && tagDraft === "" && tags.length > 0) {
-      setTags((prev) => prev.slice(0, -1));
-    }
-  }
-
-  function handleUploadFormSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (uploadFiles.length === 0) return;
-    // Wire to storage/API when backend is ready.
-  }
-
-  if (auth === "loading") {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center px-4">
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">Loading…</p>
-      </div>
-    );
   }
 
   if (auth === "signed-in") {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)] flex-1">
+      <div className="flex min-h-[calc(100vh-4rem)] flex-1 items-start">
         <aside
-          className="flex w-56 shrink-0 flex-col border-r border-neutral-200 bg-neutral-50/80 dark:border-neutral-800 dark:bg-neutral-950/50"
+          className="flex h-fit w-56 shrink-0 flex-col border-r border-neutral-200 bg-neutral-50/80 dark:border-neutral-800 dark:bg-neutral-950/50"
           aria-label="Admin tools"
         >
           <div className="border-b border-neutral-200 px-4 py-4 dark:border-neutral-800">
@@ -189,7 +137,7 @@ export function AdminClient() {
               Tools
             </p>
           </div>
-          <nav className="flex flex-1 flex-col gap-1 p-3">
+          <nav className="flex flex-col gap-1 p-3">
             <button
               type="button"
               onClick={() => setAdminPanel("upload")}
@@ -205,7 +153,7 @@ export function AdminClient() {
               type="button"
               onClick={() => void handleLogout()}
               disabled={submitting}
-              className="mt-auto rounded-lg border border-neutral-300 bg-transparent px-3 py-2.5 text-left text-sm font-medium text-neutral-800 transition hover:bg-neutral-200/80 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              className="mt-4 rounded-lg border border-neutral-300 bg-transparent px-3 py-2.5 text-left text-sm font-medium text-neutral-800 transition hover:bg-neutral-200/80 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
             >
               {submitting ? "Signing out…" : "Log out"}
             </button>
@@ -233,171 +181,7 @@ export function AdminClient() {
                 sidebar to add nail designs.
               </p>
             ) : (
-              <form onSubmit={(e) => void handleUploadFormSubmit(e)} className="mt-8 space-y-8">
-                <div>
-                  <label className="block text-sm font-medium">Images</label>
-                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                    Drag files here or click to browse.
-                  </p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                      accept="image/*"
-                    multiple
-                    className="sr-only"
-                    aria-label="Choose images"
-                    onChange={(e) => {
-                      const list = e.target.files;
-                      if (list?.length) addFilesFromList(list);
-                      e.target.value = "";
-                    }}
-                  />
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        fileInputRef.current?.click();
-                      }
-                    }}
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragEnter={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setDragActive(true);
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onDragLeave={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragActive(false);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setDragActive(false);
-                      if (e.dataTransfer.files?.length) addFilesFromList(e.dataTransfer.files);
-                    }}
-                    className={`mt-3 flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-8 text-center text-sm transition ${
-                      dragActive
-                        ? "border-neutral-500 bg-neutral-100 dark:border-neutral-400 dark:bg-neutral-900"
-                        : "border-neutral-300 bg-neutral-50/50 hover:border-neutral-400 dark:border-neutral-600 dark:bg-neutral-900/30 dark:hover:border-neutral-500"
-                    }`}
-                  >
-                    Drop images here or click to select
-                  </div>
-                </div>
-
-                {uploadFiles.length > 0 ? (
-                  <div>
-                    <p className="text-sm font-medium">Preview</p>
-                    <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {uploadFiles.map((file, index) => (
-                        <li
-                          key={`${file.name}-${file.size}-${index}`}
-                          className="group relative overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900"
-                        >
-                          {/* Blob previews: next/image is awkward with object URLs */}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={previewUrls[index]}
-                            alt=""
-                            className="aspect-square w-full object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeFileAt(index)}
-                            className="absolute right-1 top-1 rounded bg-black/60 px-2 py-0.5 text-xs text-white opacity-0 transition group-hover:opacity-100 focus:opacity-100"
-                          >
-                            Remove
-                          </button>
-                          <p className="truncate px-2 py-1 text-xs text-neutral-600 dark:text-neutral-400">
-                            {file.name}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-
-                <div>
-                  <label htmlFor="design-name" className="block text-sm font-medium">
-                    Design name
-                  </label>
-                  <input
-                    id="design-name"
-                    name="designName"
-                    type="text"
-                    value={designName}
-                    onChange={(e) => setDesignName(e.target.value)}
-                    placeholder="e.g. Snowy Mountains"
-                    className="mt-2 w-full rounded-lg border border-neutral-300 bg-transparent px-3 py-2 text-sm outline-none ring-offset-background focus:ring-2 focus:ring-neutral-400 dark:border-neutral-600"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="design-tags" className="block text-sm font-medium">
-                    Tags
-                  </label>
-                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                    Type a tag and press Enter or comma. Use semicolons for several at once.
-                  </p>
-                  <div className="mt-2 flex min-h-[42px] flex-wrap gap-2 rounded-lg border border-neutral-300 bg-transparent px-2 py-1.5 dark:border-neutral-600">
-                    {tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center gap-1 rounded-md bg-neutral-200 px-2 py-0.5 text-xs font-medium text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100"
-                      >
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="rounded p-0.5 hover:bg-neutral-300 dark:hover:bg-neutral-600"
-                          aria-label={`Remove tag ${tag}`}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      id="design-tags"
-                      type="text"
-                      value={tagDraft}
-                      onChange={(e) => setTagDraft(e.target.value)}
-                      onKeyDown={handleTagKeyDown}
-                      onBlur={() => commitTagFromDraft()}
-                      placeholder={"Add tag…"}
-                      className="min-w-[120px] flex-1 bg-transparent py-1 text-sm outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    type="submit"
-                    disabled={uploadFiles.length === 0}
-                    className="rounded-lg bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
-                  >
-                    Save design
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUploadFiles([]);
-                      setDesignName("");
-                      setTags([]);
-                      setTagDraft("");
-                    }}
-                    className="text-sm text-neutral-600 underline-offset-2 hover:underline dark:text-neutral-400"
-                  >
-                    Clear form
-                  </button>
-                </div>
-              </form>
+              <AdminUploadForm />
             )}
           </div>
         </main>
@@ -411,7 +195,17 @@ export function AdminClient() {
       <p className="mt-2 text-center text-sm text-neutral-600 dark:text-neutral-400">
         Sign in with the admin account.
       </p>
-      <form onSubmit={(e) => void handleLogin(e)} className="mt-8 space-y-4">
+      {sessionCheck === "pending" ? (
+        <p className="mt-2 text-center text-xs text-neutral-500 dark:text-neutral-500">
+          Checking for an existing session…
+        </p>
+      ) : null}
+      {bootstrapError ? (
+        <p role="status" className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          {bootstrapError}
+        </p>
+      ) : null}
+      <form method="post" onSubmit={(e) => void handleLogin(e)} className="mt-8 space-y-4">
         <div>
           <label htmlFor="admin-email" className="block text-sm font-medium">
             Email

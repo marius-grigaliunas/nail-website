@@ -23,14 +23,15 @@ View all uploaded designs in a simple list
 Appwrite DB schema to define at this point:
 Collection: designs
 
+- $id: string
 - name: string
-- shape: enum (stiletto, coffin, almond, square, oval, short)
-- colors: string[]
-- styles: string[] (cottagecore, siren, rock, minimalist, seasonal, etc.)
+- shape: enum (round, oval, square, squoval, almond, coffin, stiletto, lipstick)
 - price: number (optional)
-- cloudinary_url: string
-- thumbnail_url: string
-- created_at: datetime
+- tags: string[] (cottagecore, siren, rock, minimalist, seasonal, etc.)
+- thumbnail_urls?: string[]
+- image_urls: string[]
+- $created_at: datetime
+- $updatedAt: datetime
 
 Phase 2 — Public Gallery
 The main product. This is what visitors see.
