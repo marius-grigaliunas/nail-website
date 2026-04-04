@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppwritePing } from "./appwrite-ping";
+import { SiteNavbar } from "./site-navbar";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,7 +31,8 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <AppwritePing />
-        {children}
+        <SiteNavbar />
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       </body>
     </html>
   );
