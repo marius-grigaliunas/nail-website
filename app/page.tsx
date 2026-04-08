@@ -27,10 +27,7 @@ export default async function Home() {
         ) : (
           <ul className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {designs.map((design) => {
-              const urls =
-                design.thumbnail_urls && design.thumbnail_urls.length > 0
-                  ? design.thumbnail_urls
-                  : design.image_urls;
+              const urls = design.display_urls;
               if (urls.length === 0) return null;
               return (
                 <li
@@ -47,7 +44,7 @@ export default async function Home() {
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {urls.map((url, i) => (
                         <a
-                          key={`${design.$id}-${i}`}
+                          key={`${design.$id}-${url}`}
                           href={url}
                           target="_blank"
                           rel="noreferrer"
