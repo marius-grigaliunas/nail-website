@@ -42,7 +42,6 @@ export default async function Home() {
                       <h2 className="font-medium text-zinc-900 dark:text-zinc-100">{design.name}</h2>
                       <p className="text-xs capitalize text-zinc-500 dark:text-zinc-400">
                         {design.shape.replace("-", " ")}
-                        {design.price != null ? ` · ${design.price}` : ""}
                       </p>
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

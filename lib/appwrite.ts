@@ -1,10 +1,10 @@
-import { Account, AppwriteException, Client, Databases, ID } from "appwrite";
+import { Account, AppwriteException, Client, ID, TablesDB } from "appwrite";
 import type { CloudinaryUploadWidgetInfo } from "next-cloudinary";
 import { compressImage } from "./compress-image";
 import type { DesignCreateInput } from "./designInterface";
 import {
   appwriteDatabaseId,
-  appwriteDesignsCollectionId,
+  appwriteDesignsTableId,
   appwriteEndpoint,
   appwriteProjectId,
   cloudinaryCloudName,
@@ -15,7 +15,7 @@ const client = new Client()
   .setProject(appwriteProjectId);
 
 const account = new Account(client);
-const databases = new Databases(client);
+const tables = new TablesDB(client);
 
 /** Unsigned upload preset configured in Cloudinary for nail design images */
 export const CLOUDINARY_NAIL_DESIGN_UPLOAD_PRESET = "nail design" as const;
@@ -94,28 +94,41 @@ export function handleNailDesignCloudinaryUpload(
 }
 
 /**
- * Creates a design row in Appwrite. Requires an active account session and matching collection attributes.
+ * Creates a design row via Tables API (`TablesDB.createRow`). Requires an active session and
+ * matching table columns (`name`, `shape`, `tags`, `image_urls`, optional `price`, `thumbnail_urls`).
  */
-export async function createDesignDocument(data: DesignCreateInput) {
-  if (!appwriteDatabaseId || !appwriteDesignsCollectionId) {
+export async function createDatabaseRow(data: DesignCreateInput) {
+  if (!appwriteDatabaseId || !appwriteDesignsTableId) {
     throw new AppwriteException(
-      "Set NEXT_PUBLIC_APPWRITE_DATABASE_ID and NEXT_PUBLIC_APPWRITE_DESIGNS_COLLECTION_ID",
+      "Set NEXT_PUBLIC_APPWRITE_DATABASE_ID and NEXT_PUBLIC_APPWRITE_DESIGNS_TABLE_ID (or DESIGNS_COLLECTION_ID)",
       400,
       "config",
       "",
     );
   }
-  const doc: Record<string, unknown> = {
+
+  const rowData: Record<string, unknown> = {
     name: data.name,
     shape: data.shape,
     tags: data.tags,
     image_urls: data.image_urls,
   };
-  if (data.price !== undefined) doc.price = data.price;
+  if (data.price !== undefined) rowData.price = data.price;
   if (data.thumbnail_urls !== undefined && data.thumbnail_urls.length > 0) {
-    doc.thumbnail_urls = data.thumbnail_urls;
+    rowData.thumbnail_urls = data.thumbnail_urls;
   }
-  return databases.createDocument(appwriteDatabaseId, appwriteDesignsCollectionId, ID.unique(), doc);
+
+  let rowId = ID.unique() 
+  console.log("createDatabaseRow called", new Date().toISOString(), rowId);
+
+  return tables.createRow({
+    databaseId: appwriteDatabaseId,
+    tableId: appwriteDesignsTableId,
+    rowId: rowId,
+    data: rowData,
+  });
+
+  
 }
 
-export { account, client, databases };
+export { account, client, tables };

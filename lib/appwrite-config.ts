@@ -16,8 +16,4 @@ export const appwriteDesignsTableId =
   process.env.NEXT_PUBLIC_APPWRITE_DESIGNS_COLLECTION_ID ??
   "";
 
-/** @deprecated Use {@link appwriteDesignsTableId}. Kept for admin `createDocument` config. */
-export const appwriteDesignsCollectionId =
-  process.env.NEXT_PUBLIC_APPWRITE_DESIGNS_COLLECTION_ID ?? "";
-
 export const cloudinaryCloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? "";

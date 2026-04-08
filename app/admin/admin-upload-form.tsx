@@ -1,9 +1,6 @@
 "use client";
 
-import {
-  createDesignDocument,
-  uploadNailDesignFileToCloudinary,
-} from "@/lib/appwrite";
+import { createDatabaseRow, uploadNailDesignFileToCloudinary } from "@/lib/appwrite";
 import { NAIL_SHAPES, type NailShape } from "@/lib/designInterface";
 import { AppwriteException } from "appwrite";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -42,6 +39,7 @@ export function AdminUploadForm() {
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const submittingRef = useRef(false);
   const galleryPreviewUrls = useObjectUrls(galleryFiles);
 
   function addGalleryFromList(list: FileList | File[]) {
@@ -114,6 +112,7 @@ export function AdminUploadForm() {
 
   async function handleUploadFormSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submittingRef.current) return;
     const name = designName.trim();
     if (!name || galleryFiles.length === 0) return;
 
@@ -127,6 +126,7 @@ export function AdminUploadForm() {
 
     const resolvedTags = tagsForSubmit();
 
+    submittingRef.current = true;
     setSubmitting(true);
     setSubmitError(null);
     setSubmitSuccess(false);
@@ -137,7 +137,7 @@ export function AdminUploadForm() {
       );
       const image_urls = assets.map((a) => a.secureUrl);
 
-      await createDesignDocument({
+      await createDatabaseRow({
         name,
         shape,
         tags: resolvedTags,
@@ -156,6 +156,7 @@ export function AdminUploadForm() {
             : "Something went wrong while saving the design.";
       setSubmitError(message);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
