@@ -18,8 +18,9 @@ export function AdminShell({
 
         {adminPanel === "home" ? (
           <p className="mt-8 text-sm text-neutral-600 dark:text-neutral-400">
-            Choose <span className="font-medium text-neutral-800 dark:text-neutral-200">Upload</span> in the
-            sidebar to add nail designs.
+            Open navigation and choose{" "}
+            <span className="font-medium text-neutral-800 dark:text-neutral-200">Admin panel - Upload</span>{" "}
+            to add nail designs.
           </p>
         ) : (
           uploadView
