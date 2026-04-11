@@ -18,6 +18,18 @@ export const appwriteDesignsTableId =
 
 export const cloudinaryCloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? "";
 
+/** Server-only: signed Cloudinary Admin API (e.g. destroy assets). Do not expose to the client. */
+export const cloudinaryApiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY ?? "";
+export const cloudinaryApiSecret = process.env.CLOUDINARY_API_SECRET ?? "";
+
 export function hasDesignsTableConfig(): boolean {
   return appwriteDatabaseId.length > 0 && appwriteDesignsTableId.length > 0;
+}
+
+export function hasCloudinaryDestroyConfig(): boolean {
+  return (
+    cloudinaryCloudName.length > 0 &&
+    cloudinaryApiKey.length > 0 &&
+    cloudinaryApiSecret.length > 0
+  );
 }

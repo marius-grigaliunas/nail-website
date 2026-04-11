@@ -1,11 +1,13 @@
 export function AdminSidebar({
   adminPanel,
   onUploadClick,
+  onGalleryClick,
   onLogoutClick,
   submitting,
 }: {
-  adminPanel: "home" | "upload";
+  adminPanel: "home" | "upload" | "gallery";
   onUploadClick: () => void;
+  onGalleryClick: () => void;
   onLogoutClick: () => void;
   submitting: boolean;
 }) {
@@ -30,6 +32,17 @@ export function AdminSidebar({
           }`}
         >
           Upload
+        </button>
+        <button
+          type="button"
+          onClick={onGalleryClick}
+          className={`rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
+            adminPanel === "gallery"
+              ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
+              : "text-neutral-700 hover:bg-neutral-200/80 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          }`}
+        >
+          Gallery
         </button>
         <button
           type="button"

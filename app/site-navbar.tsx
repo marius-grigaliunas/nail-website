@@ -172,6 +172,13 @@ export function SiteNavbar() {
               >
                 Upload
               </Link>
+              <Link
+                href="/admin?panel=gallery"
+                onClick={() => setIsOpen(false)}
+                className="ml-3 rounded-md px-3 py-2 text-sm font-medium text-foreground transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                Gallery
+              </Link>
               <button
                 type="button"
                 onClick={() => void handleAdminLogout()}
