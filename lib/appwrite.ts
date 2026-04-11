@@ -5,7 +5,9 @@ import type { DesignCreateInput } from "@/lib/domain/design/types";
 import {
   CLOUDINARY_NAIL_DESIGN_UPLOAD_PRESET,
   type NailDesignCloudinaryAsset,
+  type NailDesignUploadWithThumbnail,
   uploadNailDesignFileToCloudinary,
+  uploadNailDesignFileWithThumbnail,
 } from "@/lib/infra/cloudinary/upload";
 
 export { CLOUDINARY_NAIL_DESIGN_UPLOAD_PRESET };
@@ -14,7 +16,8 @@ export { CLOUDINARY_NAIL_DESIGN_UPLOAD_PRESET };
  * Upload a single image file to Cloudinary (unsigned preset). Use when saving a design so uploads
  * start together with Appwrite persistence.
  */
-export { uploadNailDesignFileToCloudinary };
+export { uploadNailDesignFileToCloudinary, uploadNailDesignFileWithThumbnail };
+export type { NailDesignUploadWithThumbnail };
 
 /**
  * Call from the Cloudinary upload widget `onSuccess` when an image finishes uploading.

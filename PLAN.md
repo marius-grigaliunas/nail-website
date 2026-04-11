@@ -2,12 +2,12 @@
 
 Phase 0 — Project Setup (do # this once, before writing any real code)
 
-Scaffold with npx create-next-app@latest — TypeScript, App Router, Tailwind
-Set up GitHub repo immediately, before anything else
-Create accounts (if not already): Cloudinary, Resend, Vercel, UptimeRobot
-Create the 2nd Appwrite project (this one is for the nail site, Bloomer keeps the first)
-Install Playwright and Vitest, configure both before touching features
-Set up Vercel deployment from GitHub — configure so every push to main auto-deploys
+Scaffold with npx create-next-app@latest — TypeScript, App Router, Tailwind  
+Set up GitHub repo immediately, before anything else  
+Create accounts (if not already): Cloudinary, Resend, Vercel, UptimeRobot  
+Create the 2nd Appwrite project (this one is for the nail site, Bloomer keeps the first)  
+Install Playwright and Vitest, configure both before touching features  
+Set up Vercel deployment from GitHub — configure so every push to main auto-deploys  
 Set up UptimeRobot pointing at the Vercel URL — 5 minute ping interval, email alert to you
 
 Phase 1 — Admin Panel (build before the public site)

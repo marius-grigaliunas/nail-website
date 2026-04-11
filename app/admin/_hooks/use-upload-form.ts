@@ -1,6 +1,6 @@
 "use client";
 
-import { createDatabaseRow, uploadNailDesignFileToCloudinary } from "@/lib/appwrite";
+import { createDatabaseRow, uploadNailDesignFileWithThumbnail } from "@/lib/appwrite";
 import { type NailShape } from "@/lib/designInterface";
 import { AppwriteException } from "appwrite";
 import { useRef, useState } from "react";
@@ -41,16 +41,18 @@ export function useUploadForm() {
     setSubmitSuccess(false);
 
     try {
-      const assets = await Promise.all(
-        galleryFiles.map((file) => uploadNailDesignFileToCloudinary(file)),
+      const pairs = await Promise.all(
+        galleryFiles.map((file) => uploadNailDesignFileWithThumbnail(file)),
       );
-      const image_urls = assets.map((a) => a.secureUrl);
+      const image_urls = pairs.map((p) => p.image.secureUrl);
+      const thumbnail_urls = pairs.map((p) => p.thumbnail.secureUrl);
 
       await createDatabaseRow({
         name,
         shape,
         tags: resolvedTags,
         image_urls,
+        thumbnail_urls,
         ...(price !== undefined ? { price } : {}),
       });
 
