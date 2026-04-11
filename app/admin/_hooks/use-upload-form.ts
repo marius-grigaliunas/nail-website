@@ -1,8 +1,8 @@
 "use client";
 
-import { createDatabaseRow, uploadNailDesignFileWithThumbnail } from "@/lib/appwrite";
+import { uploadNailDesignFileWithThumbnail } from "@/lib/appwrite";
 import { type NailShape } from "@/lib/designInterface";
-import { AppwriteException } from "appwrite";
+import { fetchWithAppwriteJwt } from "@/lib/fetch-with-appwrite-jwt";
 import { useRef, useState } from "react";
 
 export function useUploadForm() {
@@ -47,24 +47,30 @@ export function useUploadForm() {
       const image_urls = pairs.map((p) => p.image.secureUrl);
       const thumbnail_urls = pairs.map((p) => p.thumbnail.secureUrl);
 
-      await createDatabaseRow({
-        name,
-        shape,
-        tags: resolvedTags,
-        image_urls,
-        thumbnail_urls,
-        ...(price !== undefined ? { price } : {}),
+      const saveRes = await fetchWithAppwriteJwt("/api/admin/designs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          shape,
+          tags: resolvedTags,
+          image_urls,
+          thumbnail_urls,
+          ...(price !== undefined ? { price } : {}),
+        }),
       });
+      if (!saveRes.ok) {
+        const body = (await saveRes.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? `Could not save design (${saveRes.status})`);
+      }
 
       onSuccess();
       setSubmitSuccess(true);
     } catch (err) {
       const message =
-        err instanceof AppwriteException
+        err instanceof Error
           ? err.message
-          : err instanceof Error
-            ? err.message
-            : "Something went wrong while saving the design.";
+          : "Something went wrong while saving the design.";
       setSubmitError(message);
     } finally {
       submittingRef.current = false;

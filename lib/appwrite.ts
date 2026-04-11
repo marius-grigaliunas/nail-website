@@ -1,7 +1,5 @@
 import type { CloudinaryUploadWidgetInfo } from "next-cloudinary";
-import { createDesignRow } from "@/lib/infra/appwrite/designs-write";
 import { account, browserClient as client, tables } from "@/lib/infra/appwrite/client";
-import type { DesignCreateInput } from "@/lib/domain/design/types";
 import {
   CLOUDINARY_NAIL_DESIGN_UPLOAD_PRESET,
   type NailDesignCloudinaryAsset,
@@ -33,14 +31,6 @@ export function handleNailDesignCloudinaryUpload(
     height: info.height,
     format: info.format,
   };
-}
-
-/**
- * Creates a design row via Tables API (`TablesDB.createRow`). Requires an active session and
- * matching table columns (`name`, `shape`, `tags`, `image_urls`, optional `price`, `thumbnail_urls`).
- */
-export async function createDatabaseRow(data: DesignCreateInput) {
-  return createDesignRow(data);
 }
 
 export { account, client, tables };

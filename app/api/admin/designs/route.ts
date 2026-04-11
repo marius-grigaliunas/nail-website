@@ -1,38 +1,51 @@
-import { Query, TablesDB } from "appwrite";
-import { getBearerJwt, getUserFromJwt } from "@/lib/appwrite-server";
-import { appwriteDatabaseId, appwriteDesignsTableId, hasDesignsTableConfig } from "@/lib/config/env";
+import { AppwriteException } from "appwrite";
 import { rowToDesign } from "@/lib/features/designs/mappers";
-import { createServerWebClient } from "@/lib/infra/appwrite/client";
+import {
+  listDesignsForAdmin,
+  parseAdminDesignCreateBody,
+} from "@/lib/features/designs/admin-designs-service";
+import { authorizeAdminDesignsRequest } from "@/lib/infra/appwrite/admin-tables-request";
+import { createDesignRow } from "@/lib/infra/appwrite/designs-write";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
-  const jwt = getBearerJwt(request);
-  if (!jwt) {
-    return NextResponse.json({ error: "Missing or invalid Authorization header" }, { status: 401 });
-  }
+  const auth = await authorizeAdminDesignsRequest(request);
+  if (!auth.ok) return auth.response;
 
   try {
-    await getUserFromJwt(jwt);
-  } catch {
-    return NextResponse.json({ error: "Invalid or expired JWT" }, { status: 401 });
-  }
-
-  if (!hasDesignsTableConfig()) {
-    return NextResponse.json({ error: "Designs table is not configured" }, { status: 503 });
-  }
-
-  const client = createServerWebClient().setJWT(jwt);
-  const tablesDB = new TablesDB(client);
-
-  try {
-    const { rows } = await tablesDB.listRows({
-      databaseId: appwriteDatabaseId,
-      tableId: appwriteDesignsTableId,
-      queries: [Query.orderDesc("$createdAt")],
-    });
-    return NextResponse.json({ designs: rows.map(rowToDesign) });
+    const designs = await listDesignsForAdmin(auth.tablesDB);
+    return NextResponse.json({ designs });
   } catch (err) {
     console.error("[GET /api/admin/designs]", err);
     return NextResponse.json({ error: "Could not list designs" }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  const auth = await authorizeAdminDesignsRequest(request);
+  if (!auth.ok) return auth.response;
+
+  let json: unknown;
+  try {
+    json = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const parsed = parseAdminDesignCreateBody(json);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
+  }
+
+  try {
+    const row = await createDesignRow(auth.tablesDB, parsed.data);
+    return NextResponse.json({ design: rowToDesign(row) }, { status: 201 });
+  } catch (err) {
+    console.error("[POST /api/admin/designs]", err);
+    if (err instanceof AppwriteException) {
+      const status = err.code >= 400 && err.code < 600 ? err.code : 500;
+      return NextResponse.json({ error: err.message }, { status });
+    }
+    return NextResponse.json({ error: "Could not create design" }, { status: 500 });
   }
 }

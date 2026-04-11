@@ -1,9 +1,12 @@
-import { AppwriteException, ID } from "appwrite";
+import { AppwriteException, ID, type TablesDB } from "appwrite";
 import { appwriteDatabaseId, appwriteDesignsTableId, hasDesignsTableConfig } from "@/lib/config/env";
 import type { DesignCreateInput } from "@/lib/domain/design/types";
-import { tables } from "./client";
 
-export async function createDesignRow(data: DesignCreateInput) {
+/**
+ * Inserts a designs table row using the given {@link TablesDB} client (browser session or JWT on the server).
+ * Callers must ensure {@link hasDesignsTableConfig} before invoking (e.g. after {@link authorizeAdminDesignsRequest}).
+ */
+export async function createDesignRow(tablesDB: TablesDB, data: DesignCreateInput) {
   if (!hasDesignsTableConfig()) {
     throw new AppwriteException(
       "Set NEXT_PUBLIC_APPWRITE_DATABASE_ID and NEXT_PUBLIC_APPWRITE_DESIGNS_TABLE_ID (or DESIGNS_COLLECTION_ID)",
@@ -24,7 +27,7 @@ export async function createDesignRow(data: DesignCreateInput) {
     rowData.thumbnail_urls = data.thumbnail_urls;
   }
 
-  return tables.createRow({
+  return tablesDB.createRow({
     databaseId: appwriteDatabaseId,
     tableId: appwriteDesignsTableId,
     rowId: ID.unique(),
