@@ -2,12 +2,12 @@
 
 Phase 0 — Project Setup (do # this once, before writing any real code)
 
-Scaffold with npx create-next-app@latest — TypeScript, App Router, Tailwind
-Set up GitHub repo immediately, before anything else
-Create accounts (if not already): Cloudinary, Resend, Vercel, UptimeRobot
-Create the 2nd Appwrite project (this one is for the nail site, Bloomer keeps the first)
-Install Playwright and Vitest, configure both before touching features
-Set up Vercel deployment from GitHub — configure so every push to main auto-deploys
+Scaffold with npx create-next-app@latest — TypeScript, App Router, Tailwind  
+Set up GitHub repo immediately, before anything else  
+Create accounts (if not already): Cloudinary, Resend, Vercel, UptimeRobot  
+Create the 2nd Appwrite project (this one is for the nail site, Bloomer keeps the first)  
+Install Playwright and Vitest, configure both before touching features  
+Set up Vercel deployment from GitHub — configure so every push to main auto-deploys  
 Set up UptimeRobot pointing at the Vercel URL — 5 minute ping interval, email alert to you
 
 Phase 1 — Admin Panel (build before the public site)
@@ -23,14 +23,15 @@ View all uploaded designs in a simple list
 Appwrite DB schema to define at this point:
 Collection: designs
 
+- $id: string
 - name: string
-- shape: enum (stiletto, coffin, almond, square, oval, short)
-- colors: string[]
-- styles: string[] (cottagecore, siren, rock, minimalist, seasonal, etc.)
+- shape: enum (round, oval, square, squoval, almond, coffin, stiletto, lipstick)
 - price: number (optional)
-- cloudinary_url: string
-- thumbnail_url: string
-- created_at: datetime
+- tags: string[] (cottagecore, siren, rock, minimalist, seasonal, etc.)
+- thumbnail_urls?: string[]
+- image_urls: string[]
+- $created_at: datetime
+- $updatedAt: datetime
 
 Phase 2 — Public Gallery
 The main product. This is what visitors see.
