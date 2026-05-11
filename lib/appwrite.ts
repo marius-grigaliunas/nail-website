@@ -1,4 +1,3 @@
-import type { CloudinaryUploadWidgetInfo } from "next-cloudinary";
 import { account, browserClient as client, tables } from "@/lib/infra/appwrite/client";
 import {
   CLOUDINARY_NAIL_DESIGN_UPLOAD_PRESET,
@@ -9,6 +8,14 @@ import {
 } from "@/lib/infra/cloudinary/upload";
 
 export { CLOUDINARY_NAIL_DESIGN_UPLOAD_PRESET };
+
+type CloudinaryUploadWidgetInfo = {
+  public_id: string;
+  secure_url: string;
+  width: number;
+  height: number;
+  format: string;
+};
 
 /**
  * Upload a single image file to Cloudinary (unsigned preset). Use when saving a design so uploads
