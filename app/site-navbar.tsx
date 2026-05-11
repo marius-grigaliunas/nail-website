@@ -7,6 +7,10 @@ import type { Models } from "appwrite";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+type Theme = "dark" | "light";
+
+const THEME_STORAGE_KEY = "theme";
+
 function isGuestUser(user: Models.User, session: Models.Session | null): boolean {
   if (user.labels?.includes("guest")) return true;
   if (session?.provider === "anonymous") return true;
@@ -18,6 +22,18 @@ export function SiteNavbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [canAccessAdmin, setCanAccessAdmin] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [theme, setTheme] = useState<Theme>("dark");
+
+  function applyTheme(nextTheme: Theme) {
+    document.documentElement.dataset.theme = nextTheme;
+    document.documentElement.style.colorScheme = nextTheme;
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
+    } catch {
+      // Theme still changes for the current page if storage is unavailable.
+    }
+    setTheme(nextTheme);
+  }
 
   useEffect(() => {
     if (!isOpen) return;
@@ -31,6 +47,11 @@ export function SiteNavbar() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen]);
+
+  useEffect(() => {
+    const activeTheme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+    setTheme(activeTheme);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -68,6 +89,24 @@ export function SiteNavbar() {
       router.push("/admin");
       router.refresh();
     }
+  }
+
+  const isDayMode = theme === "light";
+  const themeButtonLabel = isDayMode ? "Switch to dark mode" : "Switch to day mode";
+  const themeButtonText = isDayMode ? "Day mode" : "Dark mode";
+
+  function renderThemeButton(className = "") {
+    return (
+      <button
+        type="button"
+        aria-label={themeButtonLabel}
+        aria-pressed={isDayMode}
+        onClick={() => applyTheme(isDayMode ? "dark" : "light")}
+        className={`rounded-md border border-neutral-300 px-3 py-2 text-sm font-medium text-foreground transition hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800 ${className}`}
+      >
+        {themeButtonText}
+      </button>
+    );
   }
 
   return (
@@ -112,7 +151,10 @@ export function SiteNavbar() {
                 Elena&apos;s Nail Studio
               </Link>
             </div>
-            <AdminBadge />
+            <div className="flex items-center gap-3">
+              {renderThemeButton("hidden sm:inline-flex")}
+              <AdminBadge />
+            </div>
           </div>
         </div>
       </header>
@@ -149,6 +191,7 @@ export function SiteNavbar() {
         </div>
 
         <nav className="flex flex-col gap-2">
+          {renderThemeButton("mb-2 w-full text-left")}
           <Link
             href="/"
             onClick={() => setIsOpen(false)}
