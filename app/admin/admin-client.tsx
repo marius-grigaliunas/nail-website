@@ -22,7 +22,7 @@ export function AdminClient() {
 
   if (session.auth === "signed-in") {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)] w-full flex-1 items-start">
+      <div className="flex min-h-[calc(100vh-4rem)] w-full flex-1 flex-col items-stretch md:flex-row md:items-start">
         <AdminSidebar
           adminPanel={adminPanel}
           onUploadClick={() => router.push("/admin?panel=upload")}

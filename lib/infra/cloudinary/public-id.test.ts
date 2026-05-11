@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { cloudinaryPublicIdFromUrl, isCloudinaryDeliveryUrl } from "./public-id";
+import {
+  cloudinaryPublicIdFromUrl,
+  isCloudinaryDeliveryUrl,
+  isCloudinaryDeliveryUrlForCloud,
+} from "./public-id";
 
 describe("cloudinaryPublicIdFromUrl", () => {
   it("parses URL with version segment", () => {
@@ -25,5 +29,28 @@ describe("isCloudinaryDeliveryUrl", () => {
       isCloudinaryDeliveryUrl("https://res.cloudinary.com/x/image/upload/v1/a.webp"),
     ).toBe(true);
     expect(isCloudinaryDeliveryUrl("https://example.com/x")).toBe(false);
+  });
+});
+
+describe("isCloudinaryDeliveryUrlForCloud", () => {
+  it("requires HTTPS delivery URLs for the configured cloud", () => {
+    expect(
+      isCloudinaryDeliveryUrlForCloud(
+        "https://res.cloudinary.com/demo/image/upload/v1/a.webp",
+        "demo",
+      ),
+    ).toBe(true);
+    expect(
+      isCloudinaryDeliveryUrlForCloud(
+        "https://res.cloudinary.com/other/image/upload/v1/a.webp",
+        "demo",
+      ),
+    ).toBe(false);
+    expect(
+      isCloudinaryDeliveryUrlForCloud(
+        "http://res.cloudinary.com/demo/image/upload/v1/a.webp",
+        "demo",
+      ),
+    ).toBe(false);
   });
 });

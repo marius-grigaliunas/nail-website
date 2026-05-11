@@ -45,3 +45,6 @@ export type DesignCreateInput = {
   price?: number;
   thumbnail_urls?: string[];
 };
+
+/** Full editable payload for admin updates. */
+export type DesignUpdateInput = DesignCreateInput;

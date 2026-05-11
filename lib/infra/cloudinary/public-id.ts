@@ -43,3 +43,20 @@ export function isCloudinaryDeliveryUrl(url: string): boolean {
     return false;
   }
 }
+
+export function isCloudinaryDeliveryUrlForCloud(url: string, cloudName: string): boolean {
+  if (!cloudName) return false;
+  try {
+    const parsed = new URL(url);
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    return (
+      parsed.protocol === "https:" &&
+      parsed.hostname === "res.cloudinary.com" &&
+      segments[0] === cloudName &&
+      segments[1] === "image" &&
+      segments[2] === "upload"
+    );
+  } catch {
+    return false;
+  }
+}

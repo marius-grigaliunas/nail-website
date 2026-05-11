@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     console.error("[POST /api/admin/designs]", err);
     if (err instanceof AppwriteException) {
       const status = err.code >= 400 && err.code < 600 ? err.code : 500;
-      return NextResponse.json({ error: err.message }, { status });
+      return NextResponse.json({ error: "Could not create design" }, { status });
     }
     return NextResponse.json({ error: "Could not create design" }, { status: 500 });
   }

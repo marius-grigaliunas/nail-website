@@ -13,7 +13,7 @@ export function AdminSidebar({
 }) {
   return (
     <aside
-      className="flex h-fit w-56 shrink-0 flex-col border-r border-neutral-200 bg-neutral-50/80 dark:border-neutral-800 dark:bg-neutral-950/50"
+      className="flex h-fit w-full shrink-0 flex-col border-b border-neutral-200 bg-neutral-50/80 dark:border-neutral-800 dark:bg-neutral-950/50 md:w-56 md:border-b-0 md:border-r"
       aria-label="Admin tools"
     >
       <div className="border-b border-neutral-200 px-4 py-4 dark:border-neutral-800">
@@ -21,11 +21,11 @@ export function AdminSidebar({
           Tools
         </p>
       </div>
-      <nav className="flex flex-col gap-1 p-3">
+      <nav className="flex flex-row gap-2 overflow-x-auto p-3 md:flex-col md:gap-1">
         <button
           type="button"
           onClick={onUploadClick}
-          className={`rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
+          className={`shrink-0 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
             adminPanel === "upload"
               ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
               : "text-neutral-700 hover:bg-neutral-200/80 dark:text-neutral-300 dark:hover:bg-neutral-800"
@@ -36,7 +36,7 @@ export function AdminSidebar({
         <button
           type="button"
           onClick={onGalleryClick}
-          className={`rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
+          className={`shrink-0 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition ${
             adminPanel === "gallery"
               ? "bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900"
               : "text-neutral-700 hover:bg-neutral-200/80 dark:text-neutral-300 dark:hover:bg-neutral-800"
@@ -48,7 +48,7 @@ export function AdminSidebar({
           type="button"
           onClick={onLogoutClick}
           disabled={submitting}
-          className="mt-4 rounded-lg border border-neutral-300 bg-transparent px-3 py-2.5 text-left text-sm font-medium text-neutral-800 transition hover:bg-neutral-200/80 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          className="shrink-0 rounded-lg border border-neutral-300 bg-transparent px-3 py-2.5 text-left text-sm font-medium text-neutral-800 transition hover:bg-neutral-200/80 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800 md:mt-4"
         >
           {submitting ? "Signing out…" : "Log out"}
         </button>

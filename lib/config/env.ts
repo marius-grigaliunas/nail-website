@@ -16,14 +16,24 @@ export const appwriteDesignsTableId =
   process.env.NEXT_PUBLIC_APPWRITE_DESIGNS_COLLECTION_ID ??
   "";
 
+export const appwriteAdminUserIds = (process.env.APPWRITE_ADMIN_USER_IDS ?? "")
+  .split(",")
+  .map((id) => id.trim())
+  .filter(Boolean);
+
 export const cloudinaryCloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ?? "";
 
 /** Server-only: signed Cloudinary Admin API (e.g. destroy assets). Do not expose to the client. */
-export const cloudinaryApiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY ?? "";
+export const cloudinaryApiKey =
+  process.env.CLOUDINARY_API_KEY ?? process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY ?? "";
 export const cloudinaryApiSecret = process.env.CLOUDINARY_API_SECRET ?? "";
 
 export function hasDesignsTableConfig(): boolean {
   return appwriteDatabaseId.length > 0 && appwriteDesignsTableId.length > 0;
+}
+
+export function hasAdminUserAllowlist(): boolean {
+  return appwriteAdminUserIds.length > 0;
 }
 
 export function hasCloudinaryDestroyConfig(): boolean {

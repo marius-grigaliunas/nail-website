@@ -2,17 +2,21 @@ import { AppwriteException, Query, TablesDB } from "appwrite";
 import {
   appwriteDatabaseId,
   appwriteDesignsTableId,
+  cloudinaryCloudName,
   hasCloudinaryDestroyConfig,
 } from "@/lib/config/env";
 import {
   NAIL_SHAPES,
   type Design,
   type DesignCreateInput,
+  type DesignUpdateInput,
   type NailShape,
 } from "@/lib/domain/design/types";
+import { updateDesignRow } from "@/lib/infra/appwrite/designs-write";
 import { destroyCloudinaryImagesByPublicIds } from "@/lib/infra/cloudinary/destroy-server";
 import {
   cloudinaryPublicIdFromUrl,
+  isCloudinaryDeliveryUrlForCloud,
   isCloudinaryDeliveryUrl,
 } from "@/lib/infra/cloudinary/public-id";
 import { rowToDesign } from "./mappers";
@@ -31,59 +35,154 @@ function isNailShape(s: string): s is NailShape {
   return (NAIL_SHAPES as readonly string[]).includes(s);
 }
 
-export function parseAdminDesignCreateBody(json: unknown):
-  | { ok: true; data: DesignCreateInput }
-  | { ok: false; error: string } {
+const MAX_NAME_LENGTH = 120;
+const MAX_TAG_LENGTH = 40;
+const MAX_TAGS = 24;
+const MAX_IMAGES = 12;
+
+function parseName(value: unknown): { ok: true; value: string } | { ok: false; error: string } {
+  if (typeof value !== "string" || !value.trim()) {
+    return { ok: false, error: "Invalid or missing name" };
+  }
+  const name = value.trim();
+  if (name.length > MAX_NAME_LENGTH) {
+    return { ok: false, error: `name must be ${MAX_NAME_LENGTH} characters or fewer` };
+  }
+  return { ok: true, value: name };
+}
+
+function parseShape(value: unknown): { ok: true; value: NailShape } | { ok: false; error: string } {
+  if (typeof value !== "string" || !isNailShape(value)) {
+    return { ok: false, error: "Invalid or missing shape" };
+  }
+  return { ok: true, value };
+}
+
+function parseTags(value: unknown): { ok: true; value: string[] } | { ok: false; error: string } {
+  if (!Array.isArray(value) || !value.every((t) => typeof t === "string")) {
+    return { ok: false, error: "tags must be an array of strings" };
+  }
+
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  for (const raw of value) {
+    const tag = raw.trim().replace(/^#/, "");
+    if (!tag) continue;
+    if (tag.length > MAX_TAG_LENGTH) {
+      return { ok: false, error: `tags must be ${MAX_TAG_LENGTH} characters or fewer` };
+    }
+    const key = tag.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      tags.push(tag);
+    }
+  }
+
+  if (tags.length > MAX_TAGS) {
+    return { ok: false, error: `tags must include ${MAX_TAGS} items or fewer` };
+  }
+
+  return { ok: true, value: tags };
+}
+
+function parsePrice(value: unknown): { ok: true; value?: number } | { ok: false; error: string } {
+  if (value === undefined || value === null) {
+    return { ok: true };
+  }
+  if (typeof value !== "number" || Number.isNaN(value) || value < 0) {
+    return { ok: false, error: "price must be a non-negative number when provided" };
+  }
+  return { ok: true, value };
+}
+
+function parseCloudinaryUrls(
+  value: unknown,
+  field: "image_urls" | "thumbnail_urls",
+  { required }: { required: boolean },
+): { ok: true; value?: string[] } | { ok: false; error: string } {
+  if (value === undefined) {
+    if (required) return { ok: false, error: `${field} must be an array of strings` };
+    return { ok: true };
+  }
+  if (!Array.isArray(value) || !value.every((u) => typeof u === "string")) {
+    return { ok: false, error: `${field} must be an array of strings` };
+  }
+  if (required && value.length === 0) {
+    return { ok: false, error: `${field} must not be empty` };
+  }
+  if (value.length > MAX_IMAGES) {
+    return { ok: false, error: `${field} must include ${MAX_IMAGES} items or fewer` };
+  }
+
+  const normalized = value.map((u) => u.trim()).filter(Boolean);
+  if (normalized.length !== value.length) {
+    return { ok: false, error: `${field} must not include empty URLs` };
+  }
+  if (!normalized.every((url) => isCloudinaryDeliveryUrlForCloud(url, cloudinaryCloudName))) {
+    return { ok: false, error: `${field} must only include this site's Cloudinary image URLs` };
+  }
+  return { ok: true, value: normalized };
+}
+
+function parseDesignMutationBody(
+  json: unknown,
+): { ok: true; data: DesignCreateInput } | { ok: false; error: string } {
   if (!json || typeof json !== "object") {
     return { ok: false, error: "Expected JSON object body" };
   }
   const o = json as Record<string, unknown>;
 
-  if (typeof o.name !== "string" || !o.name.trim()) {
-    return { ok: false, error: "Invalid or missing name" };
-  }
-  if (typeof o.shape !== "string" || !isNailShape(o.shape)) {
-    return { ok: false, error: "Invalid or missing shape" };
-  }
-  if (!Array.isArray(o.tags) || !o.tags.every((t) => typeof t === "string")) {
-    return { ok: false, error: "tags must be an array of strings" };
-  }
-  if (!Array.isArray(o.image_urls) || !o.image_urls.every((u) => typeof u === "string")) {
-    return { ok: false, error: "image_urls must be an array of strings" };
-  }
-  if (o.image_urls.length === 0) {
+  const name = parseName(o.name);
+  if (!name.ok) return { ok: false, error: name.error };
+
+  const shape = parseShape(o.shape);
+  if (!shape.ok) return { ok: false, error: shape.error };
+
+  const tags = parseTags(o.tags);
+  if (!tags.ok) return { ok: false, error: tags.error };
+
+  const imageUrls = parseCloudinaryUrls(o.image_urls, "image_urls", { required: true });
+  if (!imageUrls.ok) return { ok: false, error: imageUrls.error };
+  const imageUrlList = imageUrls.value;
+  if (!imageUrlList || imageUrlList.length === 0) {
     return { ok: false, error: "image_urls must not be empty" };
   }
 
-  let price: number | undefined;
-  if (o.price !== undefined) {
-    if (typeof o.price !== "number" || Number.isNaN(o.price) || o.price < 0) {
-      return { ok: false, error: "price must be a non-negative number when provided" };
-    }
-    price = o.price;
+  const thumbnailUrls = parseCloudinaryUrls(o.thumbnail_urls, "thumbnail_urls", {
+    required: false,
+  });
+  if (!thumbnailUrls.ok) return { ok: false, error: thumbnailUrls.error };
+
+  if (thumbnailUrls.value !== undefined && thumbnailUrls.value.length !== imageUrlList.length) {
+    return { ok: false, error: "thumbnail_urls must match image_urls length when provided" };
   }
 
-  let thumbnail_urls: string[] | undefined;
-  if (o.thumbnail_urls !== undefined) {
-    if (
-      !Array.isArray(o.thumbnail_urls) ||
-      !o.thumbnail_urls.every((u) => typeof u === "string")
-    ) {
-      return { ok: false, error: "thumbnail_urls must be an array of strings when provided" };
-    }
-    thumbnail_urls = o.thumbnail_urls;
-  }
+  const price = parsePrice(o.price);
+  if (!price.ok) return { ok: false, error: price.error };
 
-  const data: DesignCreateInput = {
-    name: o.name.trim(),
-    shape: o.shape,
-    tags: o.tags,
-    image_urls: o.image_urls,
-    ...(price !== undefined ? { price } : {}),
-    ...(thumbnail_urls !== undefined ? { thumbnail_urls } : {}),
+  return {
+    ok: true,
+    data: {
+      name: name.value,
+      shape: shape.value,
+      tags: tags.value,
+      image_urls: imageUrlList,
+      ...(price.value !== undefined ? { price: price.value } : {}),
+      ...(thumbnailUrls.value !== undefined ? { thumbnail_urls: thumbnailUrls.value } : {}),
+    },
   };
+}
 
-  return { ok: true, data };
+export function parseAdminDesignCreateBody(json: unknown):
+  | { ok: true; data: DesignCreateInput }
+  | { ok: false; error: string } {
+  return parseDesignMutationBody(json);
+}
+
+export function parseAdminDesignUpdateBody(json: unknown):
+  | { ok: true; data: DesignUpdateInput }
+  | { ok: false; error: string } {
+  return parseDesignMutationBody(json);
 }
 
 export async function listDesignsForAdmin(tablesDB: TablesDB): Promise<Design[]> {
@@ -115,6 +214,81 @@ function collectCloudinaryPublicIds(design: Design): { publicIds: string[]; erro
   }
 
   return { publicIds: [...new Set(publicIds)] };
+}
+
+async function getDesignForAdmin(tablesDB: TablesDB, rowId: string): Promise<Design> {
+  try {
+    const row = await tablesDB.getRow({
+      databaseId: appwriteDatabaseId,
+      tableId: appwriteDesignsTableId,
+      rowId,
+    });
+    return rowToDesign(row);
+  } catch (err) {
+    if (err instanceof AppwriteException && err.code === 404) {
+      throw new AdminDesignMutationError("Design not found", 404);
+    }
+    console.error("[getDesignForAdmin] getRow", err);
+    throw new AdminDesignMutationError("Could not load design", 500);
+  }
+}
+
+function collectRemovedPublicIds(before: Design, after: Design): string[] {
+  const beforeUrls = [...before.image_urls, ...(before.thumbnail_urls ?? [])].filter(
+    isCloudinaryDeliveryUrl,
+  );
+  const afterUrls = new Set([...after.image_urls, ...(after.thumbnail_urls ?? [])]);
+  const removedPublicIds = beforeUrls
+    .filter((url) => !afterUrls.has(url))
+    .map(cloudinaryPublicIdFromUrl)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+  return [...new Set(removedPublicIds)];
+}
+
+export async function updateDesignAndCleanupRemovedAssets(
+  tablesDB: TablesDB,
+  rowId: string,
+  data: DesignUpdateInput,
+): Promise<{ design: Design; cleanupWarning?: string }> {
+  const before = await getDesignForAdmin(tablesDB, rowId);
+
+  let updated: Design;
+  try {
+    const row = await updateDesignRow(tablesDB, rowId, data);
+    updated = rowToDesign(row);
+  } catch (err) {
+    console.error("[updateDesignAndCleanupRemovedAssets] updateRow", err);
+    if (err instanceof AppwriteException) {
+      const status = err.code >= 400 && err.code < 600 ? err.code : 500;
+      throw new AdminDesignMutationError("Could not update design", status);
+    }
+    throw new AdminDesignMutationError("Could not update design", 500);
+  }
+
+  const removedPublicIds = collectRemovedPublicIds(before, updated);
+  if (removedPublicIds.length === 0) {
+    return { design: updated };
+  }
+
+  if (!hasCloudinaryDestroyConfig()) {
+    return {
+      design: updated,
+      cleanupWarning:
+        "Design was updated, but removed Cloudinary assets could not be deleted because server delete credentials are not configured.",
+    };
+  }
+
+  try {
+    await destroyCloudinaryImagesByPublicIds(removedPublicIds);
+    return { design: updated };
+  } catch (err) {
+    console.error("[updateDesignAndCleanupRemovedAssets] Cloudinary destroy", err);
+    return {
+      design: updated,
+      cleanupWarning:
+        "Design was updated, but one or more removed Cloudinary assets could not be deleted.",
+    };
+  }
 }
 
 /**
